@@ -1,0 +1,25 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const entries = await getCollection('timeline', ({ data }) =>
+  import.meta.env.PROD ? data.status === 'published' : true
+);
+const sorted = entries.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+<BaseLayout title="Timeline">
+  <h1>Timeline</h1>
+  {sorted.length === 0 ? (
+    <p>Nothing here yet.</p>
+  ) : (
+    <ul>
+      {sorted.map(e => (
+        <li>
+          <a href={`/timeline/${e.id}`}>{e.data.title}</a>
+          {' '}
+          <time datetime={e.data.date.toISOString()}>{e.data.date.toLocaleDateString()}</time>
+        </li>
+      ))}
+    </ul>
+  )}
+</BaseLayout>

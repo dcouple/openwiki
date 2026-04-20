@@ -1,10 +1,12 @@
 FROM debian:bookworm-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server tmux git curl ca-certificates sudo \
-    python3 build-essential jq tini \
+    python3 build-essential jq tini rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 20 via NodeSource
@@ -33,7 +35,7 @@ RUN chmod +x /opt/autoblog/bin/*.sh
 # Templates (read at first boot; never mutated at runtime)
 COPY templates/ /opt/autoblog/templates/
 
-RUN mkdir -p /var/run/sshd /agent
+RUN mkdir -p /var/run/sshd /agent /site
 
-EXPOSE 22
+EXPOSE 22 4321
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/autoblog/bin/entrypoint.sh"]

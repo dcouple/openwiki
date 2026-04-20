@@ -23,16 +23,16 @@ Phase 1a is complete and its validation checklist passes. This phase extends tho
 
 ## Success criteria
 
-- [ ] `docker compose build` still succeeds with the new template bundle.
-- [ ] `docker compose up -d --wait` brings services healthy; first boot takes 3–10 min (npm install + initial build). Healthcheck tolerates that.
-- [ ] `/site/repo.git` exists and is bare; `/site/prod` (main) and `/site/dev` (dev) are worktrees backed by it.
-- [ ] `curl http://localhost:4321` returns Astro dev HTML (drafts visible).
-- [ ] `curl http://localhost:8080` returns Astro prod HTML (drafts hidden).
-- [ ] SSH in, run `claude`, say "deploy" → agent runs the deploy skill, prod updates, Caddy serves the new build.
-- [ ] Rollback skill runs `git revert` on main and re-copies dist.
-- [ ] Publishing a draft (`status: draft → published`) and re-deploying makes the page visible on `:8080`.
-- [ ] All `getCollection` calls filter by status in production mode.
-- [ ] Port bindings remain loopback-only (including the new 4321).
+- [x] `docker compose build` still succeeds with the new template bundle.
+- [x] `docker compose up -d --wait` brings services healthy; first boot takes 3–10 min (npm install + initial build). Healthcheck tolerates that.
+- [x] `/site/repo.git` exists and is bare; `/site/prod` (main) and `/site/dev` (dev) are worktrees backed by it.
+- [x] `curl http://localhost:4321` returns Astro dev HTML (drafts visible).
+- [x] `curl http://localhost:8080` returns Astro prod HTML (drafts hidden).
+- [ ] SSH in, run `claude`, say "deploy" → agent runs the deploy skill, prod updates, Caddy serves the new build. (MANUAL — requires interactive Claude session)
+- [ ] Rollback skill runs `git revert` on main and re-copies dist. (MANUAL)
+- [ ] Publishing a draft (`status: draft → published`) and re-deploying makes the page visible on `:8080`. (MANUAL)
+- [x] All `getCollection` calls filter by status in production mode.
+- [x] Port bindings remain loopback-only (including the new 4321).
 
 ## Files created or changed in this phase
 

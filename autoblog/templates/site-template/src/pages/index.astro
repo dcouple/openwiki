@@ -1,0 +1,21 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { Content as HomeContent, frontmatter as homeFront } from '../home.md';
+
+const entries = await getCollection('timeline', ({ data }) =>
+  import.meta.env.PROD ? data.status === 'published' : true
+);
+const latest = entries
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 5);
+---
+<BaseLayout title={homeFront.title}>
+  <HomeContent />
+  <h2>Lately</h2>
+  <ul>
+    {latest.map(e => (
+      <li><a href={`/timeline/${e.id}`}>{e.data.title}</a> — {e.data.date.toLocaleDateString()}</li>
+    ))}
+  </ul>
+</BaseLayout>
