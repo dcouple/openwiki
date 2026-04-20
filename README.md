@@ -1,6 +1,6 @@
-<h1 align="center">autoblog</h1>
+<h1 align="center">openwiki</h1>
 
-<p align="center"><strong>Publish more, more easily — with an agent doing the bookkeeping.</strong></p>
+<p align="center"><strong>A personal wiki and public site that maintains itself — discoverable by people and by their agents.</strong></p>
 
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
@@ -12,33 +12,35 @@
 
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/license-TBD-lightgrey" alt="License" /></a>
-  <a href="https://github.com/tbrownio/autoblog/stargazers"><img src="https://img.shields.io/github/stars/tbrownio/autoblog?style=flat" alt="Stars" /></a>
-  <a href="https://github.com/tbrownio/autoblog/issues"><img src="https://img.shields.io/github/issues/tbrownio/autoblog" alt="Issues" /></a>
+  <a href="https://github.com/dcouple/openwiki/stargazers"><img src="https://img.shields.io/github/stars/dcouple/openwiki?style=flat" alt="Stars" /></a>
+  <a href="https://github.com/dcouple/openwiki/issues"><img src="https://img.shields.io/github/issues/dcouple/openwiki" alt="Issues" /></a>
 </p>
 
 <br/>
 
-## What is autoblog?
+## What is openwiki?
 
-# A personal CMS where the agent does the maintenance
+# Be discoverable — by people and by their agents.
 
-**If Obsidian is your private vault, autoblog is your published self.**
+*An open, self-hosted personal wiki and public site that maintains itself. Drop in notes, logs, and captures; the agent curates the wiki and keeps your site current.*
 
-autoblog is a Docker-deployable personal CMS built on a private agent-maintained wiki and a deliberate public website. Drop sources into a folder, talk to a Claude Code agent over SSH, and watch your knowledge base and your site grow together.
+**If Obsidian is your private vault, openwiki is your published self.**
+
+openwiki is a Docker-deployable personal wiki + public site. Drop sources into a folder, talk to a Claude Code agent over SSH, and watch your knowledge base and your site grow together — readable by you, by visitors, and by the agents that find you.
 
 It extends [Andrej Karpathy's LLM Wiki pattern](./docs/idea.md) — entity pages, concept pages, and cross-references kept tidy by an agent that doesn't get bored — with an Astro site whose pages are written *intentionally* from vault content. Nothing leaks. Nothing rots.
 
-**The new resume is a website you actually keep updating. autoblog is built so you do.**
+**In the agent era, your public site is your new resume. openwiki keeps it alive.**
 
-|        | Step                | Example                                                                       |
-| ------ | ------------------- | ----------------------------------------------------------------------------- |
-| **01** | Drop the source     | Article, PDF, voice memo, meeting notes — anything goes into `vault/raw/`.    |
-| **02** | Talk to the agent   | *"Ingest yesterday's clippings."* *"Draft a timeline entry on the rust work."* |
-| **03** | Publish it          | *"Mark it published and deploy."* The agent builds, gates, and ships.          |
+|        | Step                     | Example                                                                                      |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------- |
+| **01** | Connect your inputs      | Notes, voice memos, meeting transcripts, Cloud/Codex logs — anything goes into `vault/raw/`. |
+| **02** | The agent curates        | Entities, concepts, and cross-references land in your private wiki. No effort required.     |
+| **03** | Your site stays current  | The agent rebuilds your public site on a cron — or when you say *"ship it."*                 |
 
 <br/>
 
-> **COMING SOON: Friend graph + public agent endpoint** — Connect with other autoblog instances, follow people whose updates you actually want, and let visitors ask your site questions that your agent answers from your vault.
+> **COMING SOON: Friend graph + agent-to-agent messaging** — Send captures to your friends' agents, get a daily summary of what they're working on, and ask your own agent *"what would Parsa think?"* — answered from their public wiki. Public agent endpoints let visitors query your site directly.
 
 <br/>
 
@@ -61,9 +63,10 @@ It extends [Andrej Karpathy's LLM Wiki pattern](./docs/idea.md) — entity pages
 
 <br/>
 
-## autoblog is right for you if
+## openwiki is right for you if
 
-- ✅ You want to **publish content more often** without hating the upkeep
+- ✅ You want to be **findable by agents**, not just search engines
+- ✅ You want **one site that evolves with your work**, not a LinkedIn you never update
 - ✅ You like the idea of a **second brain** but every wiki you've started has rotted
 - ✅ You want your site to be **the new resume** — alive, current, yours
 - ✅ You'd rather **talk to an agent** than fight a CMS dashboard
@@ -106,8 +109,8 @@ Teach the agent something once. It remembers across sessions and devices. Ingest
 </tr>
 <tr>
 <td align="center">
-<h3>🔄 Sessions Survive Drops</h3>
-tmux holds your conversation through SSH disconnects, device sleep, and switching networks.
+<h3>🤖 Agent-Readable by Design</h3>
+Your public wiki is structured for agents to crawl: entities, concepts, cross-references. Recruiters' copilots find you; friends' agents can ask you questions.
 </td>
 <td align="center">
 <h3>↩️ One-Word Rollback</h3>
@@ -122,20 +125,20 @@ Caddy fronts the public site with Let's Encrypt out of the box.
 
 <br/>
 
-## Problems autoblog solves
+## Problems openwiki solves
 
-| Without autoblog                                                                                                         | With autoblog                                                                                                                  |
+| Without openwiki                                                                                                         | With openwiki                                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| ❌ You start a blog, post three times, and abandon it because writing is friction.                                       | ✅ Drop sources into `raw/`. Tell the agent to draft. You edit and publish — not write from scratch.                            |
+| ❌ Recruiters google you and find a LinkedIn profile you last updated two years ago.                                     | ✅ They find a living wiki that shows how you actually think, kept current by an agent you never have to nag.                   |
 | ❌ Your notes pile up but nothing connects. Links rot. Summaries go stale.                                               | ✅ The agent maintains entity and concept pages, keeps cross-references honest, and updates the index every ingest.            |
+| ❌ Your private notes and your public site drift apart. What's on the site bears little resemblance to what you know.     | ✅ The site is composed from the wiki on every rebuild. They can't drift.                                                       |
 | ❌ Hosted CMSes own your content and your URLs. Migration is painful and lossy.                                          | ✅ Your vault and site are git repos in a Docker volume on a box you control. Move it whenever you want.                       |
-| ❌ Switching devices loses context. You forget what you were doing mid-draft.                                            | ✅ A persistent tmux session resumes the same Claude conversation from any device.                                             |
 | ❌ Deploys are scary. A typo in a draft breaks the live site.                                                            | ✅ A successful build gates every merge to `main`. Bad edits never reach production. Rollback is one word.                     |
 | ❌ Your private notes and your public site live in the same tool, so you self-censor or accidentally leak.               | ✅ Vault is private and never auto-published. Site is composed deliberately from vault content. Two repos, one agent.          |
 
 <br/>
 
-## Why autoblog is special
+## Why openwiki is special
 
 |                                   |                                                                                                              |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -149,7 +152,7 @@ Caddy fronts the public site with Let's Encrypt out of the box.
 
 <br/>
 
-## What autoblog is not
+## What openwiki is not
 
 |                              |                                                                                                                          |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -167,8 +170,8 @@ Caddy fronts the public site with Let's Encrypt out of the box.
 Self-hosted. Docker Compose. No account required.
 
 ```bash
-git clone https://github.com/tbrownio/autoblog
-cd autoblog
+git clone https://github.com/dcouple/openwiki
+cd openwiki
 cp .env.example .env
 # Edit .env: set ANTHROPIC_API_KEY and SSH_PUBLIC_KEY
 docker compose up -d --wait
@@ -262,7 +265,7 @@ It can't. Every deploy requires a successful `astro build` first. If the build f
 - ✅ SSH + tmux multi-device access
 - ✅ Persistent skills and memory for the agent
 - ✅ One image, two phases (laptop / VPS)
-- ⚪ **Friend graph** — connect to other autoblog instances
+- ⚪ **Friend graph** — connect to other openwiki instances; send captures to friends' agents, get daily summaries of what they're working on
 - ⚪ **Update notifications** — find out when people you follow publish
 - ⚪ **Public agent endpoint** — let visitors ask your site questions
 - ⚪ **Idea generation** — agent proposes timeline entries from your vault
@@ -286,7 +289,7 @@ It can't. Every deploy requires a successful `astro build` first. If the build f
 
 ## Credits
 
-The wiki pattern is Andrej Karpathy's "LLM Wiki" note ([reproduced here](./docs/idea.md)). The deeper lineage is Vannevar Bush's 1945 *Memex*: a personal, curated knowledge store with trails between documents. autoblog is one instantiation, optimized for a single user with a private vault, a public site, and an agent in the middle.
+The wiki pattern is Andrej Karpathy's "LLM Wiki" note ([reproduced here](./docs/idea.md)). The deeper lineage is Vannevar Bush's 1945 *Memex*: a personal, curated knowledge store with trails between documents. openwiki is one instantiation, optimized for a single user with a private vault, a public site, and an agent in the middle.
 
 <br/>
 
