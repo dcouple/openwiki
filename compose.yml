@@ -7,6 +7,8 @@ services:
       - autoblog_claude:/home/autoblog/.claude
       - autoblog_ssh:/etc/ssh
       - autoblog_site:/site
+      - autoblog_vault:/vault
+      - autoblog_vault_remote:/vault-remote.git
     ports:
       - "${SSH_BIND:-127.0.0.1}:2222:22"
       - "${DEV_BIND:-127.0.0.1}:4321:4321"
@@ -39,5 +41,7 @@ volumes:
   autoblog_claude:
   autoblog_ssh:
   autoblog_site:
+  autoblog_vault:
+  autoblog_vault_remote:
   caddy_data:
   caddy_config:

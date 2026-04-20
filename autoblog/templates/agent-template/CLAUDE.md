@@ -17,7 +17,20 @@ Three roots, each with its own git history:
   - `/site/repo.git` — bare git object store (do not work inside this directory)
   - `/site/prod` — worktree on branch `main`; Caddy serves `/site/prod/dist/`
   - `/site/dev` — worktree on branch `dev`; Astro dev server runs from here
-- `/vault` — coming in Phase 1c.
+- `/vault` — the agent's working clone of the vault bare repo at `/vault-remote.git`.
+  Layout is organized by content type, not subject:
+  - `raw/` — user-writable only. The agent reads raw but never modifies it. If you find yourself about to write anything under `raw/`, stop — something is wrong.
+  - `wiki/daily/`, `wiki/notes/`, `wiki/ideas/`, `wiki/entities/`, `wiki/sources/` — agent-authored pages, organized by content type.
+  - `log.md` — chronological record of vault operations (ingests, edits, roundups). Append-only.
+  - `index.md` — catalog of wiki pages by content type. Updated on every ingest.
+  - `CLAUDE.md` — full wiki schema (filing heuristic, required frontmatter, conventions). Read this before the first ingest of a session.
+  User writes `raw/`; the agent writes everything else. Every agent-authored wiki page must carry frontmatter with `type:`, `ai-generated: true`, and a `sources:` list pointing back to the raw file(s) that informed it.
+
+### Vault git discipline
+
+Every vault-touching skill does `git -C /vault pull --rebase` before reading and `git -C /vault push` after committing. The agent is a git client, just like the user's laptop or phone — treat sync as first-class, not optional.
+
+Never touch `/vault-remote.git` directly; it is the bare remote. All reads and writes go through the working clone at `/vault`.
 
 ## Site publishing model
 
@@ -69,6 +82,9 @@ Run these in response to the triggers listed:
 | `update-home` | "update the home page", "change the intro" |
 | `new-page` | "create a new page for X", "add a page about Y" |
 | `discard-dev` | "throw away dev changes", "reset dev", "start over on dev" |
+| `ingest-source` | "ingest", "process raw", "process new files", "catch up on raw" |
+| `write-timeline-entry` | "write a timeline entry", "write a post about X" |
+| `weekly-roundup` | "weekly roundup", "what did I work on this week" |
 
 ## Access
 

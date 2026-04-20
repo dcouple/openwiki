@@ -40,6 +40,30 @@ if [ ! -d /site/repo.git ]; then
   chown -R autoblog:autoblog /site
 fi
 
+# Seed /vault-remote.git (bare) + /vault (working clone) on first boot
+if [ ! -f /vault-remote.git/HEAD ]; then
+  echo "[bootstrap] seeding /vault-remote.git + /vault"
+
+  rm -rf /tmp/vault-seed
+  mkdir -p /tmp/vault-seed
+  cp -r "$TEMPLATES/vault-template/." /tmp/vault-seed/
+  cd /tmp/vault-seed
+  git init -b main
+  git add .
+  git -c user.email=agent@autoblog -c user.name="autoblog agent" commit -m "initial vault seed"
+
+  git init --bare -b main /vault-remote.git
+  git push /vault-remote.git main
+  rm -rf /tmp/vault-seed
+
+  git clone /vault-remote.git /vault
+
+  git -C /vault config user.email "agent@autoblog"
+  git -C /vault config user.name "autoblog agent"
+
+  chown -R autoblog:autoblog /vault /vault-remote.git
+fi
+
 # Generate SSH host keys if missing (idempotent — ssh-keygen -A won't overwrite)
 ssh-keygen -A
 
