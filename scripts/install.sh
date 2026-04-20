@@ -6,13 +6,27 @@ docker compose version >/dev/null || { echo "ERROR: install docker compose plugi
 
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo ".env created from .env.example — edit it to set ANTHROPIC_API_KEY and SSH_PUBLIC_KEY, then re-run this script."
+  echo ".env created from .env.example. Edit it to set:"
+  echo "  - SSH_PUBLIC_KEY  (required)"
+  echo "  - ANTHROPIC_API_KEY  (optional; leave blank to use a Claude Pro/Max login)"
+  echo "Then re-run this script."
   exit 0
 fi
 
+echo "Starting autoblog. First boot runs npm install + an initial Astro build,"
+echo "which takes 3-10 minutes. Tail logs in another terminal with:"
+echo "  docker compose logs -f"
+echo
+
 docker compose up -d --wait
 
-echo
-echo "autoblog is up."
-echo "  SSH:  ssh -p 2222 autoblog@localhost"
-echo "  Prod: http://localhost:8080  (placeholder in 1a; real site in 1b)"
+cat <<'EOF'
+
+autoblog is up.
+  Agent:  ./bin/autoblog         (SSH + tmux + claude)
+  Dev:    http://localhost:4321  (all content, including drafts)
+  Prod:   http://localhost:8080  (published pages only)
+
+If the prod URL is held by another app, change CADDY_HTTP_PORT in .env,
+then run: docker compose up -d
+EOF

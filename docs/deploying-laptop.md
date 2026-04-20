@@ -18,7 +18,7 @@ All bindings are loopback by default — nothing is reachable from your LAN.
 - **Docker Desktop for Mac** — <https://docs.docker.com/desktop/install/mac-install/>
 - **git** — included with Xcode Command Line Tools (`xcode-select --install`)
 - **An SSH key** — if you don't have one: `ssh-keygen -t ed25519 -C "$(whoami)@$(hostname -s)"`
-- **An Anthropic API key** — from <https://console.anthropic.com/>
+- **Claude Code auth** — either a **Claude Pro/Max subscription** (<https://claude.ai>) or an **Anthropic API key** (<https://console.anthropic.com>). Pro/Max is usually cheaper for interactive use.
 - **Obsidian** (optional, for the vault) — <https://obsidian.md/download>
 
 Start Docker Desktop and confirm it's running:
@@ -42,10 +42,9 @@ cp .env.example .env
 $EDITOR .env
 ```
 
-Set these two values; leave everything else at defaults:
+Required:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
 SSH_PUBLIC_KEY="<paste the contents of ~/.ssh/id_ed25519.pub>"
 ```
 
@@ -54,6 +53,11 @@ Get your public key quickly:
 ```bash
 pbcopy < ~/.ssh/id_ed25519.pub
 ```
+
+Claude Code auth — pick one:
+
+- **Subscription (recommended):** leave `ANTHROPIC_API_KEY` blank. You'll run `/login` once after first boot (see Step 4 below).
+- **API key:** set `ANTHROPIC_API_KEY=sk-ant-...` from <https://console.anthropic.com>.
 
 The default bindings (`SSH_BIND=127.0.0.1`, `DEV_BIND=127.0.0.1`, `CADDY_BIND=127.0.0.1`) keep everything on loopback. Don't change them for local dev.
 
@@ -82,6 +86,8 @@ That wrapper runs `ssh -p 2222 -t autoblog@localhost "tmux new-session -A -s mai
 ```bash
 claude         # start or resume a conversation with the agent
 ```
+
+If you left `ANTHROPIC_API_KEY` blank, the first prompt inside Claude will be to run `/login` — it prints a URL and a code; open the URL in your Mac browser, sign in to Claude.ai, paste the code back. The credential persists in the `autoblog_claude` volume, so you only do it once.
 
 Detach from tmux with `Ctrl-b d`. Reattach by running `./bin/autoblog` again — same session, same Claude history.
 
@@ -134,8 +140,11 @@ Everything the agent reads or writes (vault, site, skills, memory) lives in name
 ## Troubleshooting
 
 - **`ssh: connect to host localhost port 2222: Connection refused`** — container isn't healthy yet. `docker compose ps` to check status; `docker compose logs autoblog` to see why.
+- **First connect prompts you to verify a host key fingerprint** — expected. Type `yes`. The fingerprint is stable across container restarts because sshd keys live in a named volume.
 - **SSH asks for a password** — your public key isn't in `.env`, or you changed it after first boot. Re-check `SSH_PUBLIC_KEY`, then `docker compose restart autoblog`.
-- **`http://localhost:8080` shows a placeholder** — expected until Phase 1b's deploy skill produces a real build.
+- **Claude shows "API Usage Billing" but you wanted subscription** — `ANTHROPIC_API_KEY` is still set. Comment it out in `.env` and run `docker compose up -d --force-recreate`, then `/login` fresh.
+- **Claude shows "Login successful" then "Not logged in"** — your Claude.ai account doesn't have Pro/Max (subscription auth requires it), or a stale credential file is fighting the new one. Check your plan at <https://claude.ai/settings/billing>; if correct, wipe `~/.claude/*.json` inside the container and retry.
+- **`http://localhost:8080` is already taken by another app** — change `CADDY_HTTP_PORT` in `.env` to e.g. `8090`, then `docker compose up -d`.
 - **Docker Desktop warns about low resources** — bump CPU/RAM in Settings → Resources. 2 CPU / 4 GB is comfortable.
 
 ## What changes on a VPS
