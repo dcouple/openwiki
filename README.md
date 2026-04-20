@@ -18,11 +18,7 @@
 
 <br/>
 
-## What is openwiki?
-
-# Be discoverable — by people and by their agents.
-
-*An open, self-hosted personal wiki and public site that maintains itself. Drop in notes, logs, and captures; the agent curates the wiki and keeps your site current.*
+*Be discoverable — by people and by their agents. An open, self-hosted personal wiki and public site that maintains itself. Drop in notes, logs, and captures; the agent curates the wiki and keeps your site current.*
 
 **If Obsidian is your private vault, openwiki is your published self.**
 
