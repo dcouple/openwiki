@@ -1,0 +1,19 @@
+#!/bin/bash
+# Phase 1 (local Docker): defaults are correct.
+#   --tunnel has nothing to forward yet (1b adds the Astro dev server at :4321).
+#   Provided now so the flag exists before it is needed.
+# Phase 2 (VPS): set AUTOBLOG_HOST=<vps-hostname>; pass --tunnel to forward the dev server.
+set -euo pipefail
+
+HOST="${AUTOBLOG_HOST:-localhost}"
+PORT="${AUTOBLOG_PORT:-2222}"
+USER="${AUTOBLOG_USER:-autoblog}"
+
+TUNNEL_ARGS=()
+if [ "${1:-}" = "--tunnel" ]; then
+  TUNNEL_ARGS=(-L 4321:localhost:4321)
+  shift
+fi
+
+exec ssh -p "$PORT" -t "${TUNNEL_ARGS[@]}" "$USER@$HOST" \
+  "tmux new-session -A -s main -c /agent"

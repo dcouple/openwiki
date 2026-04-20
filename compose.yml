@@ -1,0 +1,42 @@
+services:
+  autoblog:
+    build: ./autoblog
+    env_file: .env
+    volumes:
+      - autoblog_agent:/agent
+      - autoblog_claude:/home/autoblog/.claude
+      - autoblog_ssh:/etc/ssh
+      - autoblog_static:/srv/static
+    ports:
+      - "${SSH_BIND:-127.0.0.1}:2222:22"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/var/run/autoblog-ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - autoblog_static:/srv/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "${CADDY_BIND:-127.0.0.1}:${CADDY_HTTP_PORT:-8080}:80"
+      - "${CADDY_BIND:-127.0.0.1}:${CADDY_HTTPS_PORT:-8443}:443"
+    depends_on:
+      autoblog:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  autoblog_agent:
+  autoblog_claude:
+  autoblog_ssh:
+  autoblog_static:
+  caddy_data:
+  caddy_config:

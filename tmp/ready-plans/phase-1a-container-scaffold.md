@@ -18,15 +18,15 @@ Container-boot debugging has a lot of surface area (volume mounts, sshd host key
 
 ## Success criteria
 
-- [ ] `docker compose config` validates cleanly with default `.env.example` values.
-- [ ] `docker compose build` succeeds.
-- [ ] `docker compose up -d --wait` brings both services healthy within 60s (no Astro build on first boot yet — this phase is fast).
-- [ ] All host-side ports bind to `127.0.0.1` only. `lsof -iTCP -sTCP:LISTEN -P | grep -E ':(2222|8080)'` shows no `0.0.0.0:*`.
-- [ ] `ssh -p 2222 autoblog@localhost` auto-attaches to tmux with cwd `/agent`.
-- [ ] `claude --version` inside the container succeeds (ANTHROPIC_API_KEY reached the shell).
-- [ ] `curl http://localhost:8080` returns the placeholder HTML.
-- [ ] SSH host keys persist across `docker compose down && up` (fingerprint unchanged).
-- [ ] `.env` is gitignored; `.env.example` is committed.
+- [x] `docker compose config` validates cleanly with default `.env.example` values.
+- [x] `docker compose build` succeeds.
+- [x] `docker compose up -d --wait` brings both services healthy within 60s (no Astro build on first boot yet — this phase is fast).
+- [x] All host-side ports bind to `127.0.0.1` only. `lsof -iTCP -sTCP:LISTEN -P | grep -E ':(2222|8080)'` shows no `0.0.0.0:*`.
+- [x] `ssh -p 2222 autoblog@localhost` auto-attaches to tmux with cwd `/agent`.
+- [x] `claude --version` inside the container succeeds (ANTHROPIC_API_KEY reached the shell).
+- [x] `curl http://localhost:8080` returns the placeholder HTML.
+- [x] SSH host keys persist across `docker compose down && up` (fingerprint unchanged).
+- [x] `.env` is gitignored; `.env.example` is committed.
 
 ## Files created in this phase
 
@@ -511,17 +511,17 @@ docker compose exec autoblog ls /agent/.claude/memory/MEMORY.md
 
 ## Final checklist
 
-- [ ] `docker compose config` passes with the default `.env.example`.
-- [ ] `docker compose build` completes.
-- [ ] `docker compose up -d --wait` → both services healthy.
-- [ ] Port bindings confirmed loopback-only.
-- [ ] SSH works, drops into tmux at `/agent`.
-- [ ] `claude --version` runs with `ANTHROPIC_API_KEY` inherited.
-- [ ] `curl localhost:8080` returns the placeholder.
-- [ ] Host keys persist across restart.
-- [ ] `.env.example` committed; `.env` gitignored.
-- [ ] `docs/tailscale.md` deleted.
-- [ ] `README.md` points to `docs/autoblog-overview.md` and the current phase plan.
+- [x] `docker compose config` passes with the default `.env.example`.
+- [x] `docker compose build` completes.
+- [x] `docker compose up -d --wait` → both services healthy.
+- [x] Port bindings confirmed loopback-only.
+- [x] SSH works, drops into tmux at `/agent`.
+- [x] `claude --version` runs with `ANTHROPIC_API_KEY` inherited.
+- [x] `curl localhost:8080` returns the placeholder.
+- [x] Host keys persist across restart.
+- [x] `.env.example` committed; `.env` gitignored.
+- [x] `docs/tailscale.md` deleted.
+- [x] `README.md` points to `docs/autoblog-overview.md` and the current phase plan.
 
 ## Anti-patterns to avoid
 
