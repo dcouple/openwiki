@@ -192,6 +192,18 @@ For the full first-run walkthroughs:
 
 <br/>
 
+## Updating
+
+On the VPS, from the repo root:
+
+```bash
+sudo bash scripts/update.sh
+```
+
+Rebuilds the container with the latest code. Your vault, site, and agent data are untouched. Optionally run `/sync-upstream` from inside the agent to pull new shipped skills.
+
+<br/>
+
 ## How it works
 
 Three roots, one agent, one container.

@@ -85,6 +85,7 @@ Run these in response to the triggers listed:
 | `ingest-source` | "ingest", "process raw", "process new files", "catch up on raw" |
 | `write-timeline-entry` | "write a timeline entry", "write a post about X" |
 | `weekly-roundup` | "weekly roundup", "what did I work on this week" |
+| `sync-upstream` | "sync upstream", "pull new skills", "apply shipped changes" |
 
 ## Access
 
