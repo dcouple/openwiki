@@ -2,7 +2,7 @@
 name: codebase-explorer
 description: Explores the codebase to locate files, analyze implementation details, and find existing patterns. Provides precise file:line references.
 tools: Read, Grep, Glob, LS
-model: sonnet
+model: opus
 permissionMode: bypassPermissions
 ---
 

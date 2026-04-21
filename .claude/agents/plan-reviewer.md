@@ -2,7 +2,7 @@
 name: plan-reviewer
 description: Reviews implementation plans for gaps, simplification opportunities, and architectural soundness. Automatically invoked by the plan skill after plan creation.
 tools: Glob, Grep, Read
-model: sonnet
+model: opus
 color: yellow
 permissionMode: bypassPermissions
 ---
