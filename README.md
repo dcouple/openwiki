@@ -170,14 +170,13 @@ git clone https://github.com/dcouple/openwiki
 cd openwiki
 cp .env.example .env
 # Edit .env: set ANTHROPIC_API_KEY and SSH_PUBLIC_KEY
-docker compose up -d --wait
+./bin/openwiki up
 ```
 
-Then SSH in and start a conversation:
+Then drop into the agent and start a conversation:
 
 ```bash
-ssh -p 2222 autoblog@localhost   # drops you into tmux at /agent
-claude                            # start a conversation with the agent
+./bin/openwiki ssh   # SSH + tmux + claude, all in one
 ```
 
 Open `http://localhost:8080` for the public site, `http://localhost:4321` for the dev preview (drafts included).
@@ -196,10 +195,12 @@ For the full first-run walkthroughs:
 On the VPS, from the repo root:
 
 ```bash
-sudo bash scripts/update.sh
+sudo openwiki update
 ```
 
 Rebuilds the container with the latest code. Your vault, site, and agent data are untouched. Optionally run `/sync-upstream` from inside the agent to pull new shipped skills.
+
+See `openwiki help` for the full command list (`up`, `down`, `restart`, `status`, `logs`, `ssh`, `edit-env`, `backup`, `update --check`, `version`).
 
 <br/>
 

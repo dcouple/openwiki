@@ -20,9 +20,23 @@ echo
 
 docker compose up -d --wait
 
-cat <<'EOF'
+if command -v openwiki >/dev/null 2>&1 || [ -x "./bin/openwiki" ]; then
+  cat <<'EOF'
 
-autoblog is up.
+openwiki is up.
+  Agent:  openwiki ssh           (SSH + tmux + claude)
+  Status: openwiki status
+  Logs:   openwiki logs autoblog
+  Dev:    http://localhost:4321  (all content, including drafts)
+  Prod:   http://localhost:8080  (published pages only)
+
+If the prod URL is held by another app, change CADDY_HTTP_PORT in .env,
+then run: openwiki restart
+EOF
+else
+  cat <<'EOF'
+
+openwiki is up.
   Agent:  ./bin/autoblog         (SSH + tmux + claude)
   Dev:    http://localhost:4321  (all content, including drafts)
   Prod:   http://localhost:8080  (published pages only)
@@ -30,3 +44,4 @@ autoblog is up.
 If the prod URL is held by another app, change CADDY_HTTP_PORT in .env,
 then run: docker compose up -d
 EOF
+fi

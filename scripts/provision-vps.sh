@@ -82,6 +82,31 @@ configure_fail2ban() {
   fail2ban-client status
 }
 
+install_jq() {
+  if command -v jq >/dev/null 2>&1; then
+    echo "[jq] already installed — skipping."
+    return
+  fi
+  echo "[jq] installing..."
+  apt-get install -y jq
+}
+
+install_openwiki_symlink() {
+  if [ ! -x "$PWD/bin/openwiki" ]; then
+    echo "[openwiki] bin/openwiki not found or not executable — skipping symlink."
+    return
+  fi
+  # realpath is GNU coreutils here (Linux-only). Do NOT copy this pattern into
+  # bin/openwiki itself — that script runs on macOS too.
+  local target
+  target="$(realpath "$PWD/bin/openwiki")"
+  ln -sf "$target" /usr/local/bin/openwiki
+  echo "[openwiki] symlinked /usr/local/bin/openwiki -> $target"
+  /usr/local/bin/openwiki version >/dev/null 2>&1 \
+    && echo "[openwiki] verified: $(/usr/local/bin/openwiki version)" \
+    || echo "[openwiki] warning: /usr/local/bin/openwiki did not respond to 'version'."
+}
+
 seed_env() {
   if [ -f .env ]; then
     echo "[.env] exists — leaving untouched."
@@ -111,6 +136,8 @@ main() {
   install_docker
   configure_firewall
   configure_fail2ban
+  install_jq
+  install_openwiki_symlink
 
   if seed_env; then
     exit 0
@@ -119,6 +146,8 @@ main() {
   echo
   echo "Provisioning complete. .env already present; not starting the stack here —"
   echo "run ./scripts/install.sh when you're ready."
+  echo
+  echo "The 'openwiki' command is now on your PATH. Try: openwiki help"
 }
 
 main "$@"

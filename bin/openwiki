@@ -1,0 +1,305 @@
+#!/bin/bash
+# openwiki — host-side CLI for the openwiki self-hosted wiki.
+#
+# Thin wrapper around `docker compose`, `git`, and bin/autoblog. Runs on the
+# host (laptop in Phase 1, VPS in Phase 2). The in-container agent is the CLI
+# for content/site/vault ops; this script is only for host-side lifecycle.
+#
+# Usage:  openwiki <subcommand> [args]
+#         openwiki help
+#
+# Install: scripts/provision-vps.sh symlinks this to /usr/local/bin/openwiki.
+# On a laptop, run as `./bin/openwiki ...` or symlink manually.
+
+set -euo pipefail
+
+# --- Prelude -----------------------------------------------------------------
+
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+resolve_repo_root() {
+  # Portable symlink resolution (BSD readlink on macOS lacks -f). Follow the
+  # chain from $0 manually; REPO_ROOT is the parent of the script's directory.
+  local src="${BASH_SOURCE[0]}"
+  while [ -L "$src" ]; do
+    local dir
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  local script_dir
+  script_dir="$(cd -P "$(dirname "$src")" && pwd)"
+  REPO_ROOT="$(cd "$script_dir/.." && pwd)"
+  [ -f "$REPO_ROOT/compose.yml" ] && [ -f "$REPO_ROOT/.env.example" ] \
+    || die "could not locate openwiki repo root (looked in $REPO_ROOT)"
+}
+
+in_container() { [ -f /.dockerenv ]; }
+
+require_docker() {
+  command -v docker >/dev/null 2>&1 \
+    || die "docker not found on PATH. Install Docker first."
+  docker compose version >/dev/null 2>&1 \
+    || die "docker compose plugin not found. Install the compose v2 plugin."
+  if ! docker ps >/dev/null 2>&1; then
+    die "docker is not accessible as $USER. Re-run with sudo, or add yourself to the docker group."
+  fi
+}
+
+require_jq() {
+  command -v jq >/dev/null 2>&1 \
+    || die "jq not found on PATH. On the VPS, re-run scripts/provision-vps.sh. On a laptop, install jq (e.g. 'brew install jq')."
+}
+
+PROJECT_NAME=""
+get_project_name() {
+  if [ -z "$PROJECT_NAME" ]; then
+    PROJECT_NAME="$(docker compose ls --format json 2>/dev/null \
+      | jq -r --arg d "$REPO_ROOT" '.[] | select(.ConfigFiles | contains($d)) | .Name' \
+      | head -n1)"
+    [ -n "$PROJECT_NAME" ] || PROJECT_NAME="$(basename "$REPO_ROOT")"
+  fi
+  echo "$PROJECT_NAME"
+}
+
+get_volume_name() {
+  local logical="$1"
+  echo "$(get_project_name)_$logical"
+}
+
+refuse_dirty_tree() {
+  local dirty
+  dirty=$(git status --porcelain --untracked-files=no)
+  if [ -n "$dirty" ]; then
+    echo "ERROR: uncommitted changes to tracked files:" >&2
+    echo "$dirty" | sed 's/^/  /' >&2
+    echo >&2
+    echo "Commit, stash, or revert these before updating." >&2
+    exit 1
+  fi
+}
+
+pull_fast_forward() {
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  echo "[git] pulling $branch from origin (fast-forward only)"
+  if ! git pull --ff-only; then
+    echo >&2
+    echo "ERROR: git pull could not fast-forward." >&2
+    echo "Branch '$branch' has diverged from origin. Resolve manually, then re-run." >&2
+    exit 1
+  fi
+}
+
+print_update_hint() {
+  cat <<'EOF'
+
+Update complete. Your vault, site, and agent data are untouched.
+
+To pull shipped skill/prompt changes into your live agent, SSH into the
+container and paste this sentence at the agent prompt (one line):
+
+  Run the procedure in /opt/autoblog/templates/agent-template/.claude/skills/sync-upstream.md
+
+After the first run, the sync-upstream skill lives at /agent/.claude/skills/,
+and future syncs are just: "sync upstream".
+
+Note: sshd_config changes in new images are shadowed by the autoblog_ssh volume
+and will not take effect on existing installs. (host keys live in that volume.)
+EOF
+}
+
+print_ready_urls() {
+  local http_port="${CADDY_HTTP_PORT:-8080}"
+  cat <<EOF
+
+openwiki is up.
+  Agent:  openwiki ssh            (SSH + tmux + claude)
+  Status: openwiki status
+  Logs:   openwiki logs autoblog
+  Dev:    http://localhost:4321   (all content, including drafts)
+  Prod:   http://localhost:${http_port}   (published pages only)
+EOF
+}
+
+# --- Subcommands -------------------------------------------------------------
+
+cmd_help() {
+  cat <<'EOF'
+openwiki — host-side CLI for the openwiki stack.
+
+Usage: openwiki <subcommand> [args]
+
+Lifecycle:
+  up                      Start the stack (waits for healthy).
+  down                    Stop the stack. Volumes preserved.
+  restart                 Recreate containers so .env changes take effect.
+  status                  Show container status, health, and volume names.
+  logs [autoblog|caddy]   Stream logs (all services if none given).
+
+Updates:
+  update                  Pull new code and rebuild (refuses dirty tree).
+  update --check          Report whether upstream has new commits; do not apply.
+
+Access and config:
+  ssh [--tunnel]          SSH into the agent container (tmux + claude).
+  edit-env                Open .env in $EDITOR (default: vi).
+
+Data:
+  backup [path]           Tar user-content volumes into path (default: ./backups/...).
+
+Info:
+  version                 Print the repo's git describe.
+  help, -h, --help        This message.
+EOF
+}
+
+cmd_version() {
+  git describe --tags --always --dirty 2>/dev/null || echo "unknown"
+}
+
+cmd_up() {
+  require_docker
+  docker compose up -d --wait
+  print_ready_urls
+}
+
+cmd_down() {
+  require_docker
+  docker compose down
+}
+
+cmd_restart() {
+  require_docker
+  # `up -d` (not `restart`) so containers whose config has drifted (new .env,
+  # new image) are recreated. `docker compose restart` would NOT re-read .env.
+  docker compose up -d
+}
+
+cmd_status() {
+  require_docker
+  require_jq
+  docker compose ps
+  echo
+  local cid health
+  cid="$(docker compose ps -q autoblog 2>/dev/null || true)"
+  if [ -n "$cid" ]; then
+    health="$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo 'unknown')"
+  else
+    health="not running"
+  fi
+  echo "autoblog health: $health"
+  echo
+  echo "Volumes (run 'docker system df -v' for sizes):"
+  docker compose config --format json \
+    | jq -r '.volumes | keys[]' \
+    | while read -r lv; do printf "  %s\n" "$(get_volume_name "$lv")"; done
+}
+
+cmd_logs() {
+  require_docker
+  if [ "$#" -eq 0 ]; then
+    docker compose logs -f
+  else
+    docker compose logs -f "$@"
+  fi
+}
+
+cmd_update() {
+  if [ "${1:-}" = "--check" ]; then
+    in_container && die "update runs on the host, not in the container"
+    git fetch --quiet
+    local branch behind
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+    behind="$(git rev-list --left-right --count HEAD...@{u} | awk '{print $2}')"
+    if [ "$behind" -eq 0 ]; then
+      echo "Up to date with origin/$branch."
+      return 0
+    fi
+    echo "$behind commit(s) behind origin/$branch:"
+    git log --oneline HEAD..@{u}
+    return 0
+  fi
+
+  in_container && die "update runs on the host, not in the container"
+  require_docker
+  refuse_dirty_tree
+  pull_fast_forward
+  echo "[docker] rebuilding and restarting the stack..."
+  docker compose up -d --build
+  print_update_hint
+}
+
+cmd_ssh() {
+  [ -x "$REPO_ROOT/bin/autoblog" ] \
+    || die "bin/autoblog not found or not executable at $REPO_ROOT/bin/autoblog"
+  exec "$REPO_ROOT/bin/autoblog" "$@"
+}
+
+cmd_edit_env() {
+  [ -f "$REPO_ROOT/.env" ] \
+    || die ".env not found at $REPO_ROOT/.env. Run scripts/provision-vps.sh or copy .env.example."
+  [ -w "$REPO_ROOT/.env" ] \
+    || die ".env at $REPO_ROOT/.env is not writable by $USER — re-run with sudo."
+  "${EDITOR:-vi}" "$REPO_ROOT/.env"
+  cat <<'EOF'
+
+.env saved. For changes to take effect:
+  openwiki restart      (recreates containers so new env vars are picked up)
+  openwiki update       (if the change requires an image rebuild)
+EOF
+}
+
+cmd_backup() {
+  require_docker
+  require_jq
+  local out="${1:-}"
+  if [ -z "$out" ]; then
+    mkdir -p "$REPO_ROOT/backups"
+    out="$REPO_ROOT/backups/openwiki-$(date -u +%Y-%m-%dT%H-%M-%SZ).tar.gz"
+  fi
+  mkdir -p "$(dirname "$out")"
+  local out_abs out_dir out_file
+  out_abs="$(cd "$(dirname "$out")" && pwd)/$(basename "$out")"
+  out_dir="$(dirname "$out_abs")"
+  out_file="$(basename "$out_abs")"
+
+  local vols=()
+  for lv in autoblog_agent autoblog_site autoblog_vault autoblog_vault_remote; do
+    local rv; rv="$(get_volume_name "$lv")"
+    vols+=("-v" "$rv:/src/$lv:ro")
+  done
+
+  echo "[backup] writing $out_abs"
+  docker run --rm "${vols[@]}" -v "$out_dir:/backup" \
+    alpine:3 \
+    tar -C /src -czf "/backup/$out_file" \
+      autoblog_agent autoblog_site autoblog_vault autoblog_vault_remote
+  echo "Backup written: $out_abs"
+}
+
+# --- Dispatch ----------------------------------------------------------------
+
+main() {
+  resolve_repo_root
+  cd "$REPO_ROOT"
+
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    up)         cmd_up "$@" ;;
+    down)       cmd_down "$@" ;;
+    restart)    cmd_restart "$@" ;;
+    status)     cmd_status "$@" ;;
+    logs)       cmd_logs "$@" ;;
+    update)     cmd_update "$@" ;;
+    ssh)        cmd_ssh "$@" ;;
+    edit-env)   cmd_edit_env "$@" ;;
+    backup)     cmd_backup "$@" ;;
+    version)    cmd_version "$@" ;;
+    help|-h|--help) cmd_help ;;
+    *)          die "unknown subcommand: $sub. Try: openwiki help" ;;
+  esac
+}
+
+main "$@"
