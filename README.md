@@ -6,7 +6,7 @@
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
   <a href="./docs/autoblog-overview.md"><strong>Architecture</strong></a> &middot;
   <a href="./docs/deploying-laptop.md"><strong>Laptop</strong></a> &middot;
-  <a href="./docs/deploying-gcp.md"><strong>VPS</strong></a> &middot;
+  <a href="./docs/deploying-vps.md"><strong>VPS</strong></a> &middot;
   <a href="./docs/idea.md"><strong>Inspiration</strong></a>
 </p>
 
@@ -185,6 +185,7 @@ Open `http://localhost:8080` for the public site, `http://localhost:4321` for th
 
 For the full first-run walkthroughs:
 - [Run on a laptop (macOS)](./docs/deploying-laptop.md)
+- [Run on a VPS (any provider)](./docs/deploying-vps.md)
 - [Run on a GCP VPS](./docs/deploying-gcp.md)
 - [Multi-device vault sync](./docs/vault-sync.md)
 
