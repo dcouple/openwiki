@@ -1,0 +1,364 @@
+#!/bin/bash
+# openwiki — host-side CLI for the openwiki self-hosted wiki.
+#
+# Thin wrapper around `docker compose`, `git`, and `ssh`. Runs on the host
+# (laptop or VPS). The in-container agent is the CLI for content/site/vault
+# ops; this script is only for host-side lifecycle.
+#
+# Usage:  openwiki <subcommand> [args]
+#         openwiki help
+#
+# Install: `install.sh` extracts this from the image to /opt/openwiki/openwiki
+#          and symlinks /usr/local/bin/openwiki → it.
+
+set -euo pipefail
+
+# --- Prelude -----------------------------------------------------------------
+
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+resolve_install_dir() {
+  # INSTALL_DIR (default /opt/openwiki) is where install.sh extracts the
+  # image's host-files bundle. `openwiki` shells out to docker compose from
+  # this dir. Overridable via env for non-standard installs and tests.
+  INSTALL_DIR="${INSTALL_DIR:-/opt/openwiki}"
+  [ -f "$INSTALL_DIR/compose.yml" ] \
+    || die "could not find compose.yml at $INSTALL_DIR/compose.yml. Run: sudo bash install.sh"
+}
+
+in_container() { [ -f /.dockerenv ]; }
+
+require_docker() {
+  command -v docker >/dev/null 2>&1 \
+    || die "docker not found on PATH. Install Docker first."
+  docker compose version >/dev/null 2>&1 \
+    || die "docker compose plugin not found. Install the compose v2 plugin."
+  if ! docker ps >/dev/null 2>&1; then
+    die "docker is not accessible as $USER. Re-run with sudo, or add yourself to the docker group."
+  fi
+}
+
+require_jq() {
+  command -v jq >/dev/null 2>&1 \
+    || die "jq not found on PATH. On the VPS, re-run install.sh. On a laptop, install jq (e.g. 'brew install jq')."
+}
+
+image_ref() {
+  # Canonical image ref from the active compose.yml. `docker compose config`
+  # handles all YAML edge cases (quoted/flow style/comments). Requires jq.
+  docker compose config --format json 2>/dev/null \
+    | jq -r '.services.autoblog.image // empty'
+}
+
+PROJECT_NAME=""
+get_project_name() {
+  if [ -z "$PROJECT_NAME" ]; then
+    PROJECT_NAME="$(docker compose ls --format json 2>/dev/null \
+      | jq -r --arg d "$INSTALL_DIR" '.[] | select(.ConfigFiles | contains($d)) | .Name' \
+      | head -n1)"
+    [ -n "$PROJECT_NAME" ] || PROJECT_NAME="$(basename "$INSTALL_DIR")"
+  fi
+  echo "$PROJECT_NAME"
+}
+
+get_volume_name() {
+  local logical="$1"
+  echo "$(get_project_name)_$logical"
+}
+
+print_update_hint() {
+  cat <<'EOF'
+
+Update complete. Your vault, site, and agent data are untouched.
+
+To pull shipped skill/prompt changes into your live agent, SSH into the
+container and paste this sentence at the agent prompt (one line):
+
+  Run the procedure in /opt/autoblog/templates/agent-template/.claude/skills/sync-upstream.md
+
+After the first run, the sync-upstream skill lives at /agent/.claude/skills/,
+and future syncs are just: "sync upstream".
+
+Note: sshd_config changes in new images are shadowed by the autoblog_ssh volume
+and will not take effect on existing installs. (host keys live in that volume.)
+EOF
+}
+
+print_ready_urls() {
+  local http_port="${CADDY_HTTP_PORT:-8080}"
+  cat <<EOF
+
+openwiki is up.
+  Agent:  openwiki ssh            (SSH + tmux + claude)
+  Status: openwiki status
+  Logs:   openwiki logs autoblog
+  Dev:    http://localhost:4321   (all content, including drafts)
+  Prod:   http://localhost:${http_port}   (published pages only)
+EOF
+}
+
+# --- Subcommands -------------------------------------------------------------
+
+cmd_help() {
+  cat <<'EOF'
+openwiki — host-side CLI for the openwiki stack.
+
+Usage: openwiki <subcommand> [args]
+
+Lifecycle:
+  up                      Start the stack (waits for healthy).
+  down                    Stop the stack. Volumes preserved.
+  restart                 Recreate containers so .env changes take effect.
+  status                  Show container status, health, and volume names.
+  logs [autoblog|caddy]   Stream logs (all services if none given).
+
+Updates:
+  update                  Pull the newest image, re-extract host files, restart.
+                          Volumes (agent, site, vault, caddy data) preserved.
+  update --check          Report whether a new image is available; do not apply.
+
+Access and config:
+  ssh [--tunnel]          SSH into the agent container (tmux + claude).
+  edit-env                Open .env in $EDITOR (default: vi).
+  set-domain <name>       Re-render Caddyfile for <name> (or "localhost") and
+                          restart caddy. Updates DOMAIN in .env.
+
+Data:
+  backup [path]           Tar user-content volumes into path (default: ./backups/...).
+
+Info:
+  version                 Print the repo's git describe.
+  help, -h, --help        This message.
+EOF
+}
+
+cmd_version() {
+  # Print the image tag and its local ID. No git repo involved — the install
+  # is a plain directory of host-files extracted from the image.
+  require_docker
+  require_jq
+  local img; img=$(image_ref)
+  [ -n "$img" ] || { echo "unknown"; return 0; }
+  local id; id=$(docker image inspect "$img" --format '{{.Id}}' 2>/dev/null || echo "not-pulled")
+  echo "$img ($id)"
+}
+
+cmd_up() {
+  require_docker
+  docker compose up -d --wait
+  print_ready_urls
+}
+
+cmd_down() {
+  require_docker
+  docker compose down
+}
+
+cmd_restart() {
+  require_docker
+  # `up -d` (not `restart`) so containers whose config has drifted (new .env,
+  # new image) are recreated. `docker compose restart` would NOT re-read .env.
+  docker compose up -d
+}
+
+cmd_status() {
+  require_docker
+  require_jq
+  docker compose ps
+  echo
+  local cid health
+  cid="$(docker compose ps -q autoblog 2>/dev/null || true)"
+  if [ -n "$cid" ]; then
+    health="$(docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo 'unknown')"
+  else
+    health="not running"
+  fi
+  echo "autoblog health: $health"
+  echo
+  echo "Volumes (run 'docker system df -v' for sizes):"
+  docker compose config --format json \
+    | jq -r '.volumes | keys[]' \
+    | while read -r lv; do printf "  %s\n" "$(get_volume_name "$lv")"; done
+}
+
+cmd_logs() {
+  require_docker
+  if [ "$#" -eq 0 ]; then
+    docker compose logs -f
+  else
+    docker compose logs -f "$@"
+  fi
+}
+
+cmd_update() {
+  in_container && die "update runs on the host, not in the container"
+  require_docker
+  require_jq
+
+  local img; img=$(image_ref)
+  [ -n "$img" ] \
+    || die "could not determine image ref from compose.yml. Is this a legacy install? Re-run install.sh."
+
+  if [ "${1:-}" = "--check" ]; then
+    # Compare local image ID before/after a pull. Simpler and more reliable than
+    # manifest digest math (see plan's "Known gotchas").
+    local before after
+    before=$(docker image inspect "$img" --format '{{.Id}}' 2>/dev/null || echo "")
+    docker pull --quiet "$img" >/dev/null
+    after=$(docker image inspect "$img" --format '{{.Id}}' 2>/dev/null || echo "")
+    if [ "$before" = "$after" ] && [ -n "$before" ]; then
+      echo "Up to date with $img."
+    else
+      echo "Update available: $img"
+    fi
+    return 0
+  fi
+
+  echo "[1/3] pulling $img"
+  docker pull "$img"
+
+  echo "[2/3] re-extracting host files from new image"
+  local cid; cid=$(docker create "$img")
+  # shellcheck disable=SC2064 — interpolate $cid at trap-set time so the cleanup
+  # still works after the local variable goes out of scope.
+  trap "docker rm -f '$cid' >/dev/null 2>&1 || true" EXIT
+  docker cp "$cid:/opt/openwiki/compose.yml"        "$INSTALL_DIR/compose.yml.new"
+  docker cp "$cid:/opt/openwiki/openwiki"           "$INSTALL_DIR/openwiki.new"
+  docker cp "$cid:/opt/openwiki/Caddyfile.template" "$INSTALL_DIR/Caddyfile.template.new"
+  docker rm -f "$cid" >/dev/null
+  trap - EXIT
+
+  # Atomic swap — all or nothing. .new files land first; only promote once all
+  # three have arrived.
+  mv "$INSTALL_DIR/compose.yml.new"        "$INSTALL_DIR/compose.yml"
+  mv "$INSTALL_DIR/openwiki.new"           "$INSTALL_DIR/openwiki"
+  mv "$INSTALL_DIR/Caddyfile.template.new" "$INSTALL_DIR/Caddyfile.template"
+  chmod +x "$INSTALL_DIR/openwiki"
+
+  echo "[3/3] restarting stack"
+  cd "$INSTALL_DIR"
+  docker compose up -d --wait
+  print_update_hint
+}
+
+cmd_ssh() {
+  local host="${AUTOBLOG_HOST:-localhost}"
+  local port="${AUTOBLOG_PORT:-2222}"
+  local user="${AUTOBLOG_USER:-autoblog}"
+  local tunnel_args=()
+  if [ "${1:-}" = "--tunnel" ]; then
+    tunnel_args=(-L 4321:localhost:4321)
+    shift || true
+  fi
+  if [ ${#tunnel_args[@]} -gt 0 ]; then
+    exec ssh -p "$port" -t "${tunnel_args[@]}" "$user@$host" \
+      "tmux new-session -A -s main -c /agent"
+  else
+    exec ssh -p "$port" -t "$user@$host" \
+      "tmux new-session -A -s main -c /agent"
+  fi
+}
+
+cmd_edit_env() {
+  [ -f "$INSTALL_DIR/.env" ] \
+    || die ".env not found at $INSTALL_DIR/.env. Run: sudo bash install.sh"
+  [ -w "$INSTALL_DIR/.env" ] \
+    || die ".env at $INSTALL_DIR/.env is not writable by $USER — re-run with sudo."
+  "${EDITOR:-vi}" "$INSTALL_DIR/.env"
+  cat <<'EOF'
+
+.env saved. For changes to take effect:
+  openwiki restart      (recreates containers so new env vars are picked up)
+  openwiki update       (if the change requires an image rebuild)
+EOF
+}
+
+cmd_set_domain() {
+  local domain="${1:-}"
+  [ -n "$domain" ] || die "usage: openwiki set-domain <domain|localhost>"
+  local tmpl="$INSTALL_DIR/Caddyfile.template"
+  local out="$INSTALL_DIR/Caddyfile"
+  [ -f "$tmpl" ] || die "Caddyfile.template not found at $tmpl. Re-run install.sh."
+  case "$domain" in
+    ""|localhost)
+      cat > "$out" <<'EOF'
+:80 {
+    root * /srv/site/prod/dist
+    file_server
+    try_files {path} {path}/ /index.html
+    encode gzip
+    header / Cache-Control "public, max-age=300"
+}
+EOF
+      ;;
+    *)
+      sed "s/__DOMAIN__/$domain/g" "$tmpl" > "$out"
+      ;;
+  esac
+  # Update DOMAIN in .env in place (add if missing)
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    if grep -q '^DOMAIN=' "$INSTALL_DIR/.env"; then
+      sed -i.bak "s|^DOMAIN=.*|DOMAIN=$domain|" "$INSTALL_DIR/.env" && rm -f "$INSTALL_DIR/.env.bak"
+    else
+      echo "DOMAIN=$domain" >> "$INSTALL_DIR/.env"
+    fi
+  fi
+  echo "[openwiki] rendered $out and updated DOMAIN=$domain in .env"
+  echo "[openwiki] restarting caddy to pick up new cert"
+  docker compose up -d caddy
+}
+
+cmd_backup() {
+  require_docker
+  require_jq
+  local out="${1:-}"
+  if [ -z "$out" ]; then
+    mkdir -p "$INSTALL_DIR/backups"
+    out="$INSTALL_DIR/backups/openwiki-$(date -u +%Y-%m-%dT%H-%M-%SZ).tar.gz"
+  fi
+  mkdir -p "$(dirname "$out")"
+  local out_abs out_dir out_file
+  out_abs="$(cd "$(dirname "$out")" && pwd)/$(basename "$out")"
+  out_dir="$(dirname "$out_abs")"
+  out_file="$(basename "$out_abs")"
+
+  local vols=()
+  for lv in autoblog_agent autoblog_site autoblog_vault autoblog_vault_remote; do
+    local rv; rv="$(get_volume_name "$lv")"
+    vols+=("-v" "$rv:/src/$lv:ro")
+  done
+
+  echo "[backup] writing $out_abs"
+  docker run --rm "${vols[@]}" -v "$out_dir:/backup" \
+    alpine:3 \
+    tar -C /src -czf "/backup/$out_file" \
+      autoblog_agent autoblog_site autoblog_vault autoblog_vault_remote
+  echo "Backup written: $out_abs"
+}
+
+# --- Dispatch ----------------------------------------------------------------
+
+main() {
+  resolve_install_dir
+  cd "$INSTALL_DIR"
+
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    up)         cmd_up "$@" ;;
+    down)       cmd_down "$@" ;;
+    restart)    cmd_restart "$@" ;;
+    status)     cmd_status "$@" ;;
+    logs)       cmd_logs "$@" ;;
+    update)     cmd_update "$@" ;;
+    ssh)        cmd_ssh "$@" ;;
+    edit-env)   cmd_edit_env "$@" ;;
+    set-domain) cmd_set_domain "$@" ;;
+    backup)     cmd_backup "$@" ;;
+    version)    cmd_version "$@" ;;
+    help|-h|--help) cmd_help ;;
+    *)          die "unknown subcommand: $sub. Try: openwiki help" ;;
+  esac
+}
+
+main "$@"

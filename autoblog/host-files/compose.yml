@@ -1,6 +1,7 @@
 services:
   autoblog:
-    build: ./autoblog
+    image: ghcr.io/dcouple/openwiki:latest
+    pull_policy: if_not_present
     env_file: .env
     volumes:
       - autoblog_agent:/agent

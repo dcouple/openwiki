@@ -40,13 +40,15 @@ if [ ! -d /site/prod/dist ]; then
   git -C /site/repo.git worktree add /site/prod main
   git -C /site/repo.git worktree add -b dev /site/dev main
 
-  echo "[bootstrap] npm install in /site/dev (first run — several minutes)…"
-  (cd /site/dev && npm install) 2>&1 | sed 's/^/  [dev] /'
-  echo "[bootstrap] npm install in /site/prod…"
-  (cd /site/prod && npm install) 2>&1 | sed 's/^/  [prod] /'
-
-  echo "[bootstrap] initial astro build in /site/prod…"
-  (cd /site/prod && npm run build) 2>&1 | sed 's/^/  [build] /'
+  # Restore pre-built artifacts baked into the image (see Dockerfile). This
+  # replaces first-boot `npm install` + `npm run build` with a plain copy,
+  # cutting healthy-up time from ~3-10 min to ~30 s. cp -a (not cp -al) — bind
+  # mounts to docker volumes always reject hardlinks with EXDEV.
+  # /site/prod only serves pre-built dist, so it never needs node_modules.
+  echo "[bootstrap] restoring pre-built node_modules into /site/dev"
+  cp -a /opt/autoblog/templates/site-template-node_modules /site/dev/node_modules
+  echo "[bootstrap] restoring pre-built dist into /site/prod"
+  cp -a /opt/autoblog/templates/site-template-dist /site/prod/dist
 fi
 
 # Seed /vault-remote.git (bare) + /vault (working clone) on first boot.
