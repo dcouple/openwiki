@@ -35,6 +35,22 @@ RUN chmod +x /opt/autoblog/bin/*.sh
 # Templates (read at first boot; never mutated at runtime)
 COPY templates/ /opt/autoblog/templates/
 
+# Pre-install node_modules (dev only — prod serves pre-built dist, doesn't need
+# them) and pre-build the prod dist inside the image. `mv` (not cp) so the seed
+# template doesn't also carry node_modules/dist. bootstrap-volumes.sh copies
+# these into /site/dev/node_modules and /site/prod/dist after worktree creation.
+RUN cd /opt/autoblog/templates/site-template \
+    && npm ci \
+    && npm run build \
+    && mv node_modules /opt/autoblog/templates/site-template-node_modules \
+    && mv dist         /opt/autoblog/templates/site-template-dist
+
+# Host-side artifacts the installer extracts from the image at install time.
+COPY host-files/compose.yml          /opt/openwiki/compose.yml
+COPY host-files/Caddyfile.template   /opt/openwiki/Caddyfile.template
+COPY host-files/openwiki             /opt/openwiki/openwiki
+RUN chmod +x /opt/openwiki/openwiki
+
 RUN mkdir -p /var/run/sshd /agent /site
 
 EXPOSE 22 4321

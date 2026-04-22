@@ -1,0 +1,15 @@
+# Local-dev override for hacking on the Dockerfile.
+#
+# Usage:
+#   docker compose -f compose.yml -f compose.dev.yml up -d --build
+#
+# Purpose:
+#   - Re-enables `build: ./autoblog` so Dockerfile edits take effect.
+#   - Retags to `openwiki:dev` so a subsequent `docker compose pull` cannot
+#     overwrite the locally-built image with the registry :latest.
+
+services:
+  autoblog:
+    build: ./autoblog
+    image: openwiki:dev
+    pull_policy: never

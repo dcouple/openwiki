@@ -1,4 +1,4 @@
-:80 {
+__DOMAIN__ {
     root * /srv/site/prod/dist
     file_server
     try_files {path} {path}/ /index.html

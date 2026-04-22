@@ -165,43 +165,45 @@ Caddy fronts the public site with Let's Encrypt out of the box.
 
 Self-hosted. Docker Compose. No account required.
 
-```bash
-git clone https://github.com/dcouple/openwiki
-cd openwiki
-cp .env.example .env
-# Edit .env: set ANTHROPIC_API_KEY and SSH_PUBLIC_KEY
-./bin/openwiki up
-```
-
-Then drop into the agent and start a conversation:
+On a fresh Debian 12 or Ubuntu 22.04+ VPS:
 
 ```bash
-./bin/openwiki ssh   # SSH + tmux + claude, all in one
+# On a fresh Debian/Ubuntu VPS:
+curl -fsSL https://raw.githubusercontent.com/dcouple/openwiki/main/install.sh -o /tmp/openwiki-install.sh
+sudo bash /tmp/openwiki-install.sh
 ```
 
-Open `http://localhost:8080` for the public site, `http://localhost:4321` for the dev preview (drafts included).
+The installer takes under two minutes. It installs Docker, configures `ufw` and `fail2ban`, pulls the latest image from GHCR, and prompts you for three things: a domain (optional), your SSH public key, and an Anthropic API key (optional — leave blank to use a Claude Pro/Max subscription). Then drop into the agent:
 
-> **Requirements:** Docker Desktop (or any Docker engine), an SSH key, and either a Claude Pro/Max subscription or an Anthropic API key.
+```bash
+ssh -p 2222 -t autoblog@<vm-ip> "tmux new-session -A -s main -c /agent"
+claude
+```
+
+Open `https://yourdomain.com` (or `http://<vm-ip>` if you skipped the domain) for the public site.
+
+> **Requirements:** A VPS with `sudo` access, an SSH key, and either a Claude Pro/Max subscription or an Anthropic API key.
 
 For the full first-run walkthroughs:
-- [Run on a laptop (macOS)](./docs/deploying-laptop.md)
-- [Run on a VPS (any provider)](./docs/deploying-vps.md)
-- [Run on a GCP VPS](./docs/deploying-gcp.md)
+- [Run on a VPS (any provider)](./docs/deploying-vps.md) — **the canonical flow**
+- [Run on a GCP VPS](./docs/deploying-gcp.md) — GCP-specific infra setup with daily snapshots
+- [Run on a laptop (macOS)](./docs/deploying-laptop.md) — `git clone` + `docker compose` for hacking on openwiki itself; the installer is Linux-only
 - [Multi-device vault sync](./docs/vault-sync.md)
 
 <br/>
 
 ## Updating
 
-On the VPS, from the repo root:
+On the VPS:
 
 ```bash
-sudo openwiki update
+openwiki update --check   # is there a newer image?
+openwiki update           # pull it and restart
 ```
 
-Rebuilds the container with the latest code. Your vault, site, and agent data are untouched. Optionally run `/sync-upstream` from inside the agent to pull new shipped skills.
+Pulls the latest image from GHCR, atomically swaps in the new host config, and restarts the stack. Your vault, site, and agent data are untouched — they live in named Docker volumes. Optionally run `/sync-upstream` from inside the agent to pull new shipped skills.
 
-See `openwiki help` for the full command list (`up`, `down`, `restart`, `status`, `logs`, `ssh`, `edit-env`, `backup`, `update --check`, `version`).
+See `openwiki help` for the full command list (`up`, `down`, `restart`, `status`, `logs`, `ssh`, `edit-env`, `set-domain`, `backup`, `update --check`, `version`).
 
 <br/>
 
