@@ -70,6 +70,7 @@ if ! git -C /vault-remote.git rev-parse --verify HEAD >/dev/null 2>&1; then
 
   git init --bare -b main /vault-remote.git
   git push /vault-remote.git main
+  cd /                        # leave /tmp/vault-seed before deleting it
   rm -rf /tmp/vault-seed
 
   git clone /vault-remote.git /vault
