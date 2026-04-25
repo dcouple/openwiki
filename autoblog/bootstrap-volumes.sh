@@ -111,6 +111,9 @@ chown -R autoblog:autoblog \
   /agent /site /vault /vault-remote.git \
   /home/autoblog/.claude /home/autoblog/.ssh
 
+# root's safe.directory setting doesn't apply to autoblog's git calls from the loop
+sudo -u autoblog git config --global --add safe.directory '*'
+
 # Readiness marker for the healthcheck
 touch /var/run/autoblog-ready
 echo "[bootstrap] ready"

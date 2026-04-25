@@ -108,6 +108,11 @@ Do NOT try to compute a diff from previous versions. If the user needs that
 level of sophistication, they'll tell you and we'll build it. For now: re-ingest
 means "read the current file and fold it into the wiki."
 
+For auto-loop re-ingest, find the existing wiki/sources/<date>-<slug>.md
+whose frontmatter `sources:` list includes the raw path being re-processed,
+and update that file in place. Do not create a new dated file. The date
+in the filename reflects first ingest, not the re-ingest.
+
 ## Batch handling
 
 On "process all pending": do the detection once, show the list, then process one
@@ -116,6 +121,24 @@ source (or note-and-attachments group) at a time, committing between each.
 If a single source fails partway (e.g. the file is corrupt): log a line
 `## [YYYY-MM-DD] skip | raw/<path> — <reason>` with the reason and move on.
 Commit what succeeded. Report which files failed at the end.
+
+## Auto-ingest contract
+
+When invoked by the auto-ingest loop (not by a user), the prompt contains
+an explicit list of files, each annotated with (sha:<12hex>, op:new|reingest).
+Behavior in this mode:
+
+1. Do NOT scan raw/ yourself — use exactly the provided list, in order.
+2. op:new  → normal ingest per Steps above.
+   op:reingest → FIND the existing wiki/sources page whose frontmatter
+   `sources:` list includes this raw path, UPDATE it in place (do not create
+   a new dated file), and revise dependent entity/concept pages as needed.
+3. Every log entry you append MUST end with ` sha:<prefix>` using exactly
+   the 12-char prefix from the prompt. Example:
+       ## [YYYY-MM-DD] ingest | raw/foo.md sha:abc123def456
+       ## [YYYY-MM-DD] re-ingest | raw/foo.md sha:789abc012345
+   The loop uses this suffix to dedupe future scans. Omitting it causes
+   infinite re-processing.
 
 ## Conventions the agent maintains
 
@@ -136,3 +159,4 @@ Commit what succeeded. Report which files failed at the end.
 - No creating a new `wiki/daily/<date>.md` if one already exists — APPEND a section.
 - No agent-authored page without `ai-generated:` and `sources:` frontmatter.
 - No skipping the pull-before-read or push-after-commit steps. Every run does both.
+- Omit the ` sha:<prefix>` suffix on log entries. The auto-ingest loop depends on it.

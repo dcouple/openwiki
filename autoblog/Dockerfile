@@ -29,7 +29,7 @@ RUN echo 'if [ -n "$SSH_CONNECTION" ] && [ -z "$TMUX" ]; then exec tmux new-sess
 
 # sshd config + entrypoint scripts
 COPY sshd_config /etc/ssh/sshd_config
-COPY entrypoint.sh bootstrap-volumes.sh /opt/autoblog/bin/
+COPY entrypoint.sh bootstrap-volumes.sh ingest-loop.sh migrate-log-sha.sh /opt/autoblog/bin/
 RUN chmod +x /opt/autoblog/bin/*.sh
 
 # Templates (read at first boot; never mutated at runtime)
