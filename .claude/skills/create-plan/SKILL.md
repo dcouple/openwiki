@@ -1,8 +1,8 @@
 ---
 name: create-plan
-description: Creates an implementation plan with thorough codebase and web research. Auto-reviews the plan after creation and iterates with user feedback. Use when planning a new feature or significant change.
-argument-hint: "[feature description or ticket reference]"
-allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Task
+description: Creates an implementation plan with thorough codebase and web research. Auto-detects active specs in ./tmp/specs/ and picks the next unchecked phase if no feature description is given. Auto-reviews the plan after creation and iterates with user feedback. Use when planning a new feature or significant change.
+argument-hint: "[feature description, ticket reference, spec path, or empty for auto-spec mode]"
+allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Edit, Bash, Task
 ---
 
 # Create Plan Agent
@@ -10,6 +10,42 @@ allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Task
 ## Feature: $ARGUMENTS
 
 Generate a complete plan for feature implementation with thorough research. The plan must contain enough context for an AI agent to implement the feature in a single pass.
+
+## Step 0: Detect Spec Mode
+
+Before treating `$ARGUMENTS` as a feature description, check whether a spec drives this plan.
+
+1. **List specs:** Run `ls ./tmp/specs/*.md 2>/dev/null` to find available specs.
+
+2. **Routing:**
+   - **`$ARGUMENTS` is a path to a file in `./tmp/specs/`** → spec mode, that spec, first unchecked phase.
+   - **`$ARGUMENTS` looks like `Phase N` or `phase N`** → spec mode. If exactly one spec exists with that phase unchecked, use it. If ambiguous, ask the user.
+   - **`$ARGUMENTS` includes both a spec path AND a phase reference** (e.g. `./tmp/specs/2026-04-25-foo.md "Phase 2"`) → spec mode, that spec, that phase.
+   - **`$ARGUMENTS` is empty AND exactly one spec exists with at least one unchecked phase** → spec mode, that spec, first unchecked phase.
+   - **`$ARGUMENTS` is empty AND multiple specs have unchecked phases** → list them, ask the user to pick.
+   - **`$ARGUMENTS` is empty AND no spec has unchecked phases** → ask the user what to plan.
+   - **Otherwise** (clear feature description that isn't a spec path or phase reference) → direct mode, proceed to Step 1 with `$ARGUMENTS` as the feature.
+
+3. **In spec mode:**
+
+   a. **Read the full spec.** You need its problem, approach, architectural decisions, and the target phase row + its `### Phase N: <name>` notes (if present).
+
+   b. **Identify the target phase.** Find the row in the phases table where the `✓` column is `[ ]` (or the explicitly-named phase).
+
+   c. **Mark the checkbox immediately**, before writing the plan, to prevent double-picking if interrupted. Use the Edit tool:
+      - `old_string`: `| [ ] | <phase#> |` (the leading cells of that row — phase number makes it unique)
+      - `new_string`: `| [x] | <phase#> |`
+
+      If the unique-string match fails (e.g. the row was hand-edited), include more of the row in `old_string` to disambiguate. Do not skip this step.
+
+   d. **Construct the "feature" for downstream steps** as: the phase's Goal + Scope + the spec's Problem and relevant Architectural Decisions. Treat the spec as the source of truth for *why* and *what*; your plan answers *how* for this one phase.
+
+   e. **The plan file MUST reference the source spec at the top**, e.g.:
+      ```
+      > Plan for **Phase N: <name>** of [spec](../specs/YYYY-MM-DD-name.md).
+      ```
+
+   Then continue with Step 1.
 
 ## Step 1: Research (Only If Needed)
 
@@ -109,6 +145,16 @@ Once the user confirms the plan is ready, tell them:
 Plan finalized! To implement, run:
 
 /implement ./tmp/ready-plans/[filename]
+```
+
+**If this plan was generated from a spec (Step 0 spec mode), also tell them:**
+
+```
+After implementing, continue with the next phase:
+
+/clear
+/create-plan
+  (auto-picks the next unchecked phase from ./tmp/specs/[spec-filename])
 ```
 
 **CRITICAL: Your job ends here.** Do NOT start implementing the plan. Do NOT spawn implementer agents. Do NOT write or modify any application code. The `/create-plan` skill only produces a plan file — implementation is a separate step that the user will trigger themselves with `/implement`.
