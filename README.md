@@ -1,3 +1,5 @@
+![Openwiki — a pixel-art private knowledge library connected to a public reading gazebo](docs/assets/openwiki-banner.png)
+
 <h1 align="center">openwiki</h1>
 
 <p align="center"><strong>A personal wiki and public site that maintains itself — discoverable by people and by their agents.</strong></p>
@@ -73,6 +75,8 @@ It extends [Andrej Karpathy's LLM Wiki pattern](./docs/idea.md) — entity pages
 <br/>
 
 ## Features
+
+![Collect sources, curate a private wiki, and explicitly publish selected public pages](docs/assets/openwiki-publishing.png)
 
 <table>
 <tr>
